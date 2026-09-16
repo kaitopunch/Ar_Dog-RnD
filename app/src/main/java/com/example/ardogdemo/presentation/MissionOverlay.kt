@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -31,6 +32,7 @@ import com.example.ardogdemo.domain.mission.MissionId
 import com.example.ardogdemo.domain.mission.MissionPhase
 import com.example.ardogdemo.domain.mission.MissionState
 import com.example.ardogdemo.domain.mission.PLAYER_MAX_HP
+import com.example.ardogdemo.diagnostics.PerformanceTestTags
 
 @Composable
 fun MissionOverlay(state: MissionState, onIntent: (ArDogIntent) -> Unit, modifier: Modifier = Modifier) {
@@ -44,17 +46,20 @@ fun MissionOverlay(state: MissionState, onIntent: (ArDogIntent) -> Unit, modifie
                 MissionChoice(
                     stringResource(R.string.mission_roaches_short),
                     state.selected == MissionId.KillRoaches,
+                    PerformanceTestTags.mission(MissionId.KillRoaches.name),
                 ) { onIntent(ArDogIntent.SelectMission(MissionId.KillRoaches)) }
                 MissionChoice(
                     stringResource(R.string.mission_bobrito_short),
                     state.selected == MissionId.DefeatBobrito,
+                    PerformanceTestTags.mission(MissionId.DefeatBobrito.name),
                 ) { onIntent(ArDogIntent.SelectMission(MissionId.DefeatBobrito)) }
             }
             Button(
                 onClick = { onIntent(ArDogIntent.StartMission) },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF48D93D), contentColor = Color(0xFF24170E)),
                 shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.padding(top = 8.dp).width(230.dp).height(54.dp),
+                modifier = Modifier.padding(top = 8.dp).width(230.dp).height(54.dp)
+                    .testTag(PerformanceTestTags.StartMission),
             ) {
                 Text(stringResource(R.string.start_mission), fontSize = 21.sp, fontWeight = FontWeight.Black)
             }
@@ -107,7 +112,7 @@ private fun MissionStatus(state: MissionState) {
 }
 
 @Composable
-private fun MissionChoice(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun MissionChoice(label: String, selected: Boolean, testTag: String, onClick: () -> Unit) {
     Text(
         label,
         color = if (selected) Color(0xFF211308) else Color.White,
@@ -115,6 +120,7 @@ private fun MissionChoice(label: String, selected: Boolean, onClick: () -> Unit)
         textAlign = TextAlign.Center,
         modifier = Modifier
             .width(108.dp)
+            .testTag(testTag)
             .background(if (selected) Color(0xFFFFCF43) else Color.Transparent, RoundedCornerShape(6.dp))
             .border(1.dp, if (selected) Color(0xFF8C5B10) else Color(0xFF73757B), RoundedCornerShape(6.dp))
             .clickable(onClick = onClick)

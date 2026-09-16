@@ -1,0 +1,37 @@
+buffers: {
+  size_kb: 32768
+  fill_policy: RING_BUFFER
+}
+data_sources: {
+  config {
+    name: "linux.ftrace"
+    ftrace_config {
+      ftrace_events: "sched/sched_switch"
+      ftrace_events: "sched/sched_wakeup"
+      ftrace_events: "power/cpu_frequency"
+      ftrace_events: "power/suspend_resume"
+      ftrace_events: "gpu_mem/gpu_mem_total"
+      atrace_categories: "gfx"
+      atrace_categories: "view"
+      atrace_categories: "camera"
+      atrace_categories: "freq"
+      atrace_categories: "idle"
+      atrace_categories: "am"
+      atrace_categories: "wm"
+      atrace_apps: "com.example.ardogdemo"
+    }
+  }
+}
+data_sources: {
+  config {
+    name: "android.surfaceflinger.frametimeline"
+  }
+}
+data_sources: {
+  config {
+    name: "android.packages_list"
+  }
+}
+duration_ms: __DURATION_MS__
+write_into_file: true
+file_write_period_ms: 2500

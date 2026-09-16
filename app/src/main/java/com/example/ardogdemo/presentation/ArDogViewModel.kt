@@ -20,6 +20,13 @@ class ArDogViewModel : ViewModel() {
     private var multiModelJob: Job? = null
 
     fun onIntent(intent: ArDogIntent) {
+        if (intent == ArDogIntent.ResetPerformanceScenario) {
+            completionJob?.cancel()
+            completionJob = null
+            stopCombatTicker()
+            multiModelJob?.cancel()
+            multiModelJob = null
+        }
         mutableState.value = ArDogReducer.reduce(mutableState.value, intent)
         if (intent is ArDogIntent.PlayAction) scheduleCompletion(intent.action)
         if (intent == ArDogIntent.ActivateMultiModel) startMultiModelTicker()

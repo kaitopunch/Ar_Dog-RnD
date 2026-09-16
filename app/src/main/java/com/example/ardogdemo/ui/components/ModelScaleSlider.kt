@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.progressBarRangeInfo
@@ -31,6 +32,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.example.ardogdemo.R
+import com.example.ardogdemo.diagnostics.PerformanceTestTags
 import kotlin.math.roundToInt
 
 @Composable
@@ -40,7 +42,10 @@ fun ModelScaleSlider(
     onValueChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.width(48.dp).height(190.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        modifier.width(48.dp).height(190.dp).testTag(PerformanceTestTags.ScaleSlider),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         Image(painterResource(R.drawable.control_zoom_in), null, Modifier.size(26.dp))
         VerticalScaleTrack(value, enabled, onValueChange, Modifier.weight(1f))
         Image(painterResource(R.drawable.control_zoom_out), null, Modifier.size(26.dp))

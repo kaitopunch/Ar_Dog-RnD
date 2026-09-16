@@ -10,14 +10,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import com.example.ardogdemo.diagnostics.PerformanceTestTags
+import com.example.ardogdemo.diagnostics.RuntimeDiagnostics
+import com.example.ardogdemo.diagnostics.RuntimeMetric
 import com.example.ardogdemo.domain.character.ModelTransform
 import com.example.ardogdemo.domain.mission.EnemyKind
 import com.example.ardogdemo.domain.mission.EnemyState
 import com.example.ardogdemo.presentation.ArDogState
 import com.example.ardogdemo.presentation.MULTI_MODEL_INSTANCE_COUNT
+import com.google.android.filament.gltfio.FilamentInstance
 import io.github.sceneview.SceneView
 import io.github.sceneview.RenderQuality
 import io.github.sceneview.SurfaceType
+import io.github.sceneview.loaders.ModelLoader
 import io.github.sceneview.math.Position
 import io.github.sceneview.math.Rotation
 import io.github.sceneview.math.Scale
@@ -27,23 +33,39 @@ import io.github.sceneview.node.Node
 import io.github.sceneview.rememberEngine
 import io.github.sceneview.rememberCameraManipulator
 import io.github.sceneview.rememberModelLoader
+import kotlinx.coroutines.delay
 
 @Composable
 fun ModelScene(state: ArDogState, onReady: () -> Unit, modifier: Modifier = Modifier) {
     val engine = rememberEngine()
     val loader = rememberModelLoader(engine)
-    val playerInstances = rememberInstancedModels(
+    val modelDestroyer = remember(loader) { DeferredModelDestroyer(loader) }
+    DisposableEffect(modelDestroyer) {
+        onDispose(modelDestroyer::onSceneDisposed)
+    }
+    var requestedPlayerPath by remember { mutableStateOf(state.modelPath) }
+    LaunchedEffect(state.modelPath) {
+        if (state.modelPath != requestedPlayerPath) {
+            delay(MODEL_SWAP_DEBOUNCE_MS)
+            requestedPlayerPath = state.modelPath
+        }
+    }
+    val playerModel = rememberInstancedModels(
         loader = loader,
-        path = state.modelPath,
+        destroyer = modelDestroyer,
+        path = requestedPlayerPath,
         count = MULTI_MODEL_INSTANCE_COUNT,
     )
+    val playerInstances = playerModel.instances
     val enemyKind = state.mission.enemies.firstOrNull()?.kind
-    val enemyInstances = rememberInstancedModels(
+    val enemyModel = rememberInstancedModels(
         loader = loader,
+        destroyer = modelDestroyer,
         path = enemyKind?.modelPath,
         count = state.mission.enemies.size,
     )
-    val playerNodes = remember(state.modelPath) { mutableStateMapOf<Int, ModelNode>() }
+    val enemyInstances = enemyModel.instances
+    val playerNodes = remember(playerModel.path) { mutableStateMapOf<Int, ModelNode>() }
     var playerRoot by remember { mutableStateOf<Node?>(null) }
     val enemyNodes = remember { mutableStateMapOf<Int, ActiveEnemyNode>() }
     LaunchedEffect(playerRoot, state.transform) {
@@ -59,6 +81,7 @@ fun ModelScene(state: ArDogState, onReady: () -> Unit, modifier: Modifier = Modi
             val shouldBeVisible = index < state.playerInstanceCount
             if (node.isVisible != shouldBeVisible) {
                 node.isVisible = shouldBeVisible
+                RuntimeDiagnostics.mark(RuntimeMetric.ModelVisibilityChanged)
                 node.stopPlayingAnimations()
                 if (shouldBeVisible) {
                     node.playAnimation(state.action.clip, loop = state.action.loops)
@@ -66,7 +89,7 @@ fun ModelScene(state: ArDogState, onReady: () -> Unit, modifier: Modifier = Modi
             }
         }
     }
-    LaunchedEffect(playerNodes.size, state.modelPath, state.actionToken, state.action) {
+    LaunchedEffect(playerNodes.size, playerModel.path, state.actionToken, state.action) {
         playerNodes.forEach { (index, model) ->
             model.stopPlayingAnimations()
             if (index < state.playerInstanceCount) {
@@ -85,10 +108,16 @@ fun ModelScene(state: ArDogState, onReady: () -> Unit, modifier: Modifier = Modi
         }
     }
     SceneView(
-        modifier = modifier, engine = engine, modelLoader = loader,
+        modifier = modifier.testTag(PerformanceTestTags.Scene),
+        engine = engine,
+        modelLoader = loader,
         surfaceType = SurfaceType.TextureSurface, isOpaque = false, autoFitContent = false,
         renderQuality = RenderQuality.Performance,
         cameraManipulator = rememberCameraManipulator(orbitHomePosition = Position(0f, .1f, 4.5f)),
+        onFrame = { frameTimeNanos ->
+            RuntimeDiagnostics.onSceneFrame(frameTimeNanos)
+            modelDestroyer.onFrame()
+        },
     ) {
         Node(
             apply = {
@@ -99,7 +128,7 @@ fun ModelScene(state: ArDogState, onReady: () -> Unit, modifier: Modifier = Modi
             },
         ) {
             playerInstances.forEachIndexed { index, instance ->
-                key(state.modelPath, index) {
+                key(playerModel.path, index) {
                     Node(position = PLAYER_FORMATION[index]) {
                         ModelNode(
                             modelInstance = instance,
@@ -144,35 +173,133 @@ private fun ModelNode.stopPlayingAnimations() {
 
 @Composable
 private fun rememberInstancedModels(
-    loader: io.github.sceneview.loaders.ModelLoader,
+    loader: ModelLoader,
+    destroyer: DeferredModelDestroyer,
     path: String?,
     count: Int,
-): List<com.google.android.filament.gltfio.FilamentInstance> {
-    var instances by remember(path, count) {
-        mutableStateOf<List<com.google.android.filament.gltfio.FilamentInstance>>(emptyList())
+): InstancedModelSet {
+    var active by remember(loader) { mutableStateOf(InstancedModelSet()) }
+    DisposableEffect(loader, destroyer) {
+        onDispose {
+            destroyer.enqueue(active.instances)
+            active = InstancedModelSet()
+        }
     }
     DisposableEffect(loader, path, count) {
         var disposed = false
+        var completed = false
+        val traceCookie = RuntimeDiagnostics.beginAsyncTrace("ArDogModelLoad")
+        if (path != null && count > 0) {
+            RuntimeDiagnostics.mark(RuntimeMetric.ModelRequested)
+        }
         val job = if (path != null && count > 0) {
             loader.loadInstancedModelAsync(path, count) { loaded ->
+                completed = true
+                RuntimeDiagnostics.endAsyncTrace("ArDogModelLoad", traceCookie)
+                RuntimeDiagnostics.mark(RuntimeMetric.ModelLoaded)
+                if (loaded.isNotEmpty()) {
+                    RuntimeDiagnostics.mark(RuntimeMetric.ModelAssetCreated)
+                    RuntimeDiagnostics.mark(RuntimeMetric.ModelInstanceCreated, loaded.size)
+                }
                 if (disposed) {
-                    loaded.firstOrNull()?.let { loader.destroyModel(it.model) }
-                } else {
-                    instances = loaded
+                    destroyer.destroyUnattached(loaded)
+                } else if (loaded.isNotEmpty()) {
+                    val previous = active.instances
+                    active = InstancedModelSet(path, loaded)
+                    destroyer.enqueue(previous)
                 }
             }
         } else {
+            destroyer.enqueue(active.instances)
+            active = InstancedModelSet()
             null
         }
         onDispose {
             disposed = true
+            if (!completed && job != null) {
+                RuntimeDiagnostics.mark(RuntimeMetric.ModelCancelled)
+                RuntimeDiagnostics.endAsyncTrace("ArDogModelLoad", traceCookie)
+            }
             job?.cancel()
-            instances.firstOrNull()?.let { loader.destroyModel(it.model) }
-            instances = emptyList()
         }
     }
-    return instances
+    return active
 }
+
+private data class InstancedModelSet(
+    val path: String? = null,
+    val instances: List<FilamentInstance> = emptyList(),
+)
+
+/**
+ * Removes model nodes from composition before destroying their shared Filament asset.
+ * Filament may still reference the previous renderable for a few submitted frames, so
+ * destroying it synchronously from a path-keyed DisposableEffect can invalidate the
+ * renderer's native handle. SceneView uses the same three-frame grace period for its
+ * deferred GPU resource destruction.
+ */
+private class DeferredModelDestroyer(private val loader: ModelLoader) {
+    private val pending = ArrayDeque<PendingModelDestroy>()
+    private var sceneDisposed = false
+
+    fun enqueue(instances: List<FilamentInstance>) {
+        if (instances.isEmpty()) return
+        if (sceneDisposed) {
+            recordDelegatedDestroy(instances)
+        } else {
+            pending.addLast(PendingModelDestroy(instances))
+        }
+    }
+
+    fun destroyUnattached(instances: List<FilamentInstance>) {
+        if (instances.isEmpty()) return
+        if (sceneDisposed) {
+            recordDelegatedDestroy(instances)
+        } else {
+            destroy(instances)
+        }
+    }
+
+    fun onFrame() {
+        if (sceneDisposed) return
+        repeat(pending.size) {
+            val item = pending.removeFirst()
+            item.framesRemaining--
+            if (item.framesRemaining == 0) {
+                destroy(item.instances)
+            } else {
+                pending.addLast(item)
+            }
+        }
+    }
+
+    fun onSceneDisposed() {
+        sceneDisposed = true
+        while (pending.isNotEmpty()) {
+            recordDelegatedDestroy(pending.removeFirst().instances)
+        }
+    }
+
+    private fun destroy(instances: List<FilamentInstance>) {
+        loader.destroyModel(instances.first().model)
+        recordDestroy(instances)
+    }
+
+    private fun recordDelegatedDestroy(instances: List<FilamentInstance>) {
+        // rememberModelLoader owns final teardown and destroys every model before Engine.
+        recordDestroy(instances)
+    }
+
+    private fun recordDestroy(instances: List<FilamentInstance>) {
+        RuntimeDiagnostics.mark(RuntimeMetric.ModelAssetDestroyed)
+        RuntimeDiagnostics.mark(RuntimeMetric.ModelInstanceDestroyed, instances.size)
+    }
+}
+
+private data class PendingModelDestroy(
+    val instances: List<FilamentInstance>,
+    var framesRemaining: Int = MODEL_DESTROY_GRACE_FRAMES,
+)
 
 private data class ActiveEnemyNode(val kind: EnemyKind, val node: ModelNode)
 
@@ -197,3 +324,5 @@ private fun formationPosition(x: Float, z: Float) = Position(
 
 private const val GUGUGAGA_BASE_SCALE = .25f
 private const val FORMATION_ROW_DEPTH_STEP = .20f
+private const val MODEL_DESTROY_GRACE_FRAMES = 3
+private const val MODEL_SWAP_DEBOUNCE_MS = 250L

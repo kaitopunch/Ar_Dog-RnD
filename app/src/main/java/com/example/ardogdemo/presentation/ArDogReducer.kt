@@ -51,6 +51,7 @@ object ArDogReducer {
         ArDogIntent.ReplayMission -> state.copy(mission = MissionCombat.start(state.mission.selected))
         ArDogIntent.ExitMission -> state.copy(mission = MissionCombat.exit(state.mission))
         is ArDogIntent.CombatTick -> state.copy(mission = MissionCombat.tick(state.mission, state.transform, intent.deltaMs))
+        ArDogIntent.ResetPerformanceScenario -> ArDogState(readiness = state.readiness)
     }
 
     private fun wrap(value: Float): Float = ((value % 360f) + 360f) % 360f

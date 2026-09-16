@@ -18,11 +18,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.ardogdemo.R
 import com.example.ardogdemo.domain.character.AccessoryId
+import com.example.ardogdemo.diagnostics.PerformanceTestTags
 
 @Composable
 fun AccessorySelector(
@@ -40,7 +42,8 @@ fun AccessorySelector(
         }
         AccessoryId.entries.forEach { id ->
             Row(
-                Modifier.fillMaxWidth().clickable { onSelect(id) }.padding(4.dp),
+                Modifier.fillMaxWidth().testTag(PerformanceTestTags.accessory(id.name))
+                    .clickable { onSelect(id) }.padding(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {

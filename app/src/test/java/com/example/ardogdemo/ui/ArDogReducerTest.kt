@@ -2,6 +2,7 @@ package com.example.ardogdemo.ui
 
 import com.example.ardogdemo.domain.character.AccessoryId
 import com.example.ardogdemo.domain.character.CharacterAction
+import com.example.ardogdemo.domain.character.CharacterReadiness
 import com.example.ardogdemo.domain.character.ModelTransform
 import com.example.ardogdemo.presentation.ArDogIntent
 import com.example.ardogdemo.presentation.ArDogReducer
@@ -146,6 +147,21 @@ class ArDogReducerTest {
         assertEquals(source.action, expired.action)
         assertEquals(source.actionToken, expired.actionToken)
         assertEquals(source.mission, expired.mission)
+    }
+
+    @Test fun `performance reset clears workload state but preserves loaded readiness`() {
+        val source = reduce(
+            reduce(
+                ArDogState(readiness = CharacterReadiness.Ready),
+                ArDogIntent.ActivateMultiModel,
+            ),
+            ArDogIntent.ToggleAccessory(AccessoryId.Pipe),
+        )
+
+        val reset = reduce(source, ArDogIntent.ResetPerformanceScenario)
+
+        assertEquals(CharacterReadiness.Ready, reset.readiness)
+        assertEquals(ArDogState(readiness = reset.readiness), reset)
     }
 
     private fun reduce(state: ArDogState, intent: ArDogIntent) = ArDogReducer.reduce(state, intent)

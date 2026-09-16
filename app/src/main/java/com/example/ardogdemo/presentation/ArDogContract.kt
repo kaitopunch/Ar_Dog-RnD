@@ -49,6 +49,7 @@ sealed interface ArDogIntent {
     data object ReplayMission : ArDogIntent
     data object ExitMission : ArDogIntent
     data class CombatTick(val deltaMs: Long) : ArDogIntent
+    data object ResetPerformanceScenario : ArDogIntent
 }
 
 const val MULTI_MODEL_DURATION_MS = 60_000L

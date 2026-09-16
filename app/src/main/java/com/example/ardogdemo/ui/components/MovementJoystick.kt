@@ -21,10 +21,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.example.ardogdemo.R
+import com.example.ardogdemo.diagnostics.PerformanceTestTags
 import kotlin.math.roundToInt
 
 @Composable
@@ -67,7 +69,8 @@ fun MovementJoystick(
         moving = false
     }
     Box(
-        modifier.size(132.dp).clip(CircleShape).pointerInput(enabled) {
+        modifier.size(132.dp).clip(CircleShape).testTag(PerformanceTestTags.Joystick)
+            .pointerInput(enabled) {
             if (!enabled) return@pointerInput
             detectDragGestures(
                 onDragStart = {
