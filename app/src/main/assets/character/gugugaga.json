@@ -1,0 +1,15 @@
+{
+  "modelRoot": "models/gugugaga",
+  "clips": { "idle": "Idle", "walk": "Walk", "punch": "Attack", "dance": "Dancing", "howl": "Howl" },
+  "durationsMs": { "punch": 1067, "dance": 17000, "howl": 2367 },
+  "movement": { "min": -1.0, "max": 1.0, "speed": 0.55 },
+  "scale": { "min": 0.55, "max": 1.60, "initial": 1.0 },
+  "accessories": [
+    { "id": "pipe", "slot": "mouth" },
+    { "id": "cigar", "slot": "mouth" },
+    { "id": "birthday_glasses", "slot": "eyes" },
+    { "id": "spiral_glasses", "slot": "eyes" }
+  ],
+  "sourceCharacterSha256": "bccfbee0f72cb683f9daa2a2fb0069401bb286093e2e3dfd934733bd1e67eaf3",
+  "sourceHowlSha256": "7d5d8861a82848d4a6075817d52b0d6dc19894c4bd486d4374e0f673931d812c"
+}

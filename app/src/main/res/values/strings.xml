@@ -1,0 +1,27 @@
+<resources>
+    <string name="app_name">AR Gugu Lab</string>
+    <string name="camera_permission_title">Camera access needed</string>
+    <string name="camera_permission_body">Open the camera to place the character in your surroundings.</string>
+    <string name="grant_camera">Open camera</string>
+    <string name="open_accessories">Accessories</string>
+    <string name="action_punch">Punch</string>
+    <string name="action_dance">Dance</string>
+    <string name="action_howl">Howl</string>
+    <string name="activate_multi_model">Activate six Gugugaga characters</string>
+    <string name="accessory_pipe">Pipe</string>
+    <string name="accessory_cigar">Cigar</string>
+    <string name="accessory_birthday_glasses">Birthday glasses</string>
+    <string name="accessory_spiral_glasses">Spiral glasses</string>
+    <string name="mission_roaches_short">ROACHES</string>
+    <string name="mission_bobrito_short">BOBRITO</string>
+    <string name="mission_roaches_title">Kill 3 Roaches</string>
+    <string name="mission_bobrito_title">Defeat Bobrito Bandito</string>
+    <string name="mission_hp">HP %1$d/%2$d</string>
+    <string name="mission_enemy_bobrito">BOBRITO</string>
+    <string name="mission_enemy_roach">ROACH %1$d</string>
+    <string name="start_mission">START MISSION!</string>
+    <string name="mission_victory">VICTORY!</string>
+    <string name="mission_defeat">DEFEAT</string>
+    <string name="mission_replay">Replay</string>
+    <string name="mission_exit">Exit mission</string>
+</resources>
