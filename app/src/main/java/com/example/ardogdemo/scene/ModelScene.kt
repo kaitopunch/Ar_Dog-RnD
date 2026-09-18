@@ -15,10 +15,10 @@ import com.example.ardogdemo.diagnostics.PerformanceTestTags
 import com.example.ardogdemo.diagnostics.RuntimeDiagnostics
 import com.example.ardogdemo.diagnostics.RuntimeMetric
 import com.example.ardogdemo.domain.character.ModelTransform
+import com.example.ardogdemo.domain.character.MultiModelFormation
 import com.example.ardogdemo.domain.mission.EnemyKind
 import com.example.ardogdemo.domain.mission.EnemyState
 import com.example.ardogdemo.presentation.ArDogState
-import com.example.ardogdemo.presentation.MULTI_MODEL_INSTANCE_COUNT
 import com.google.android.filament.gltfio.FilamentInstance
 import io.github.sceneview.SceneView
 import io.github.sceneview.RenderQuality
@@ -54,7 +54,7 @@ fun ModelScene(state: ArDogState, onReady: () -> Unit, modifier: Modifier = Modi
         loader = loader,
         destroyer = modelDestroyer,
         path = requestedPlayerPath,
-        count = MULTI_MODEL_INSTANCE_COUNT,
+        count = MultiModelFormation.MAX_COUNT,
     )
     val playerInstances = playerModel.instances
     val enemyKind = state.mission.enemies.firstOrNull()?.kind
@@ -66,12 +66,18 @@ fun ModelScene(state: ArDogState, onReady: () -> Unit, modifier: Modifier = Modi
     )
     val enemyInstances = enemyModel.instances
     val playerNodes = remember(playerModel.path) { mutableStateMapOf<Int, ModelNode>() }
+    val formationPositions = remember(state.formationLayout, state.formationCount) { state.playerFormationPositions() }
     var playerRoot by remember { mutableStateOf<Node?>(null) }
     val enemyNodes = remember { mutableStateMapOf<Int, ActiveEnemyNode>() }
     LaunchedEffect(playerRoot, state.transform) {
         playerRoot?.position = state.transform.toScenePosition()
         playerRoot?.rotation = Rotation(y = state.transform.yaw)
         playerRoot?.scale = Scale(state.transform.toSceneScale())
+    }
+    LaunchedEffect(formationPositions, playerNodes.size) {
+        // Intermediate SceneView nodes do not propagate later transform writes to a model child,
+        // so formation positions are pushed onto the retained model nodes like the root transform.
+        playerNodes.forEach { (index, node) -> node.position = formationPositions[index] }
     }
     LaunchedEffect(playerNodes.size) {
         if (playerNodes.containsKey(0)) onReady()
@@ -129,17 +135,16 @@ fun ModelScene(state: ArDogState, onReady: () -> Unit, modifier: Modifier = Modi
         ) {
             playerInstances.forEachIndexed { index, instance ->
                 key(playerModel.path, index) {
-                    Node(position = PLAYER_FORMATION[index]) {
-                        ModelNode(
-                            modelInstance = instance,
-                            autoAnimate = false,
-                            apply = {
-                                isVisible = index < state.playerInstanceCount
-                                isTouchable = index == 0
-                                playerNodes[index] = this
-                            },
-                        )
-                    }
+                    ModelNode(
+                        modelInstance = instance,
+                        autoAnimate = false,
+                        position = formationPositions[index],
+                        apply = {
+                            isVisible = index < state.playerInstanceCount
+                            isTouchable = index == 0
+                            playerNodes[index] = this
+                        },
+                    )
                 }
             }
         }
@@ -303,26 +308,9 @@ private data class PendingModelDestroy(
 
 private data class ActiveEnemyNode(val kind: EnemyKind, val node: ModelNode)
 
-private val PLAYER_FORMATION = listOf(
-    formationPosition(0f, 0f),
-    formationPosition(-.40f, -FORMATION_ROW_DEPTH_STEP),
-    formationPosition(.13f, -FORMATION_ROW_DEPTH_STEP),
-    formationPosition(-.82f, -FORMATION_ROW_DEPTH_STEP * 2f),
-    formationPosition(-.28f, -FORMATION_ROW_DEPTH_STEP * 2f),
-    formationPosition(.28f, -FORMATION_ROW_DEPTH_STEP * 2f),
-)
-
 private fun ModelTransform.toScenePosition() = Position(x * .9f, -.25f + y * .7f, 0f)
 private fun ModelTransform.toSceneScale() = scale * GUGUGAGA_BASE_SCALE
 private fun EnemyState.toScenePosition() = Position(x * .9f, -.25f + y * .7f, .18f)
 
-private fun formationPosition(x: Float, z: Float) = Position(
-    x = x / GUGUGAGA_BASE_SCALE,
-    y = 0f,
-    z = z / GUGUGAGA_BASE_SCALE,
-)
-
-private const val GUGUGAGA_BASE_SCALE = .25f
-private const val FORMATION_ROW_DEPTH_STEP = .20f
 private const val MODEL_DESTROY_GRACE_FRAMES = 3
 private const val MODEL_SWAP_DEBOUNCE_MS = 250L

@@ -3,6 +3,7 @@ package com.example.ardogdemo.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.ardogdemo.domain.character.CharacterAction
+import com.example.ardogdemo.domain.character.MultiModelCountSource
 import com.example.ardogdemo.domain.mission.MissionPhase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -12,12 +13,20 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlin.time.TimeSource
 
-class ArDogViewModel : ViewModel() {
+class ArDogViewModel(
+    private val countSource: MultiModelCountSource = MultiModelCountSource { null },
+) : ViewModel() {
     private val mutableState = MutableStateFlow(ArDogState())
     val state: StateFlow<ArDogState> = mutableState.asStateFlow()
     private var completionJob: Job? = null
     private var combatJob: Job? = null
     private var multiModelJob: Job? = null
+
+    init {
+        viewModelScope.launch {
+            countSource.fetch()?.let { onIntent(ArDogIntent.MultiModelCountLoaded(it)) }
+        }
+    }
 
     fun onIntent(intent: ArDogIntent) {
         if (intent == ArDogIntent.ResetPerformanceScenario) {

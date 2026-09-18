@@ -1,6 +1,13 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.google.services) apply false
+}
+
+// Firebase is optional for local builds: google-services.json is git-ignored, and without it
+// the app falls back to the in-app multi-model count.
+if (file("google-services.json").exists()) {
+    apply(plugin = libs.plugins.google.services.get().pluginId)
 }
 
 android {
@@ -50,7 +57,11 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
     implementation(libs.sceneview)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.config)
+    implementation(libs.kotlinx.coroutines.play.services)
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)

@@ -3,6 +3,7 @@ package com.example.ardogdemo.presentation
 import com.example.ardogdemo.domain.character.AccessorySlot
 import com.example.ardogdemo.domain.character.CharacterAction
 import com.example.ardogdemo.domain.character.CharacterReadiness
+import com.example.ardogdemo.domain.character.MultiModelFormation
 import com.example.ardogdemo.domain.mission.MissionCombat
 import kotlin.math.PI
 import kotlin.math.atan2
@@ -46,12 +47,14 @@ object ArDogReducer {
         is ArDogIntent.MultiModelTick -> state.copy(
             multiModelRemainingMs = (state.multiModelRemainingMs - intent.deltaMs.coerceAtLeast(0L)).coerceAtLeast(0L),
         )
+        is ArDogIntent.SelectFormationLayout -> state.copy(formationLayout = intent.layout)
+        is ArDogIntent.MultiModelCountLoaded -> state.copy(multiModelCount = MultiModelFormation.clampCount(intent.count))
         is ArDogIntent.SelectMission -> state.copy(mission = MissionCombat.select(state.mission, intent.id))
         ArDogIntent.StartMission -> state.copy(mission = MissionCombat.start(state.mission.selected), selectorOpen = false)
         ArDogIntent.ReplayMission -> state.copy(mission = MissionCombat.start(state.mission.selected))
         ArDogIntent.ExitMission -> state.copy(mission = MissionCombat.exit(state.mission))
         is ArDogIntent.CombatTick -> state.copy(mission = MissionCombat.tick(state.mission, state.transform, intent.deltaMs))
-        ArDogIntent.ResetPerformanceScenario -> ArDogState(readiness = state.readiness)
+        ArDogIntent.ResetPerformanceScenario -> ArDogState(readiness = state.readiness, multiModelCount = state.multiModelCount)
     }
 
     private fun wrap(value: Float): Float = ((value % 360f) + 360f) % 360f

@@ -16,4 +16,5 @@ object PerformanceTestTags {
 
     fun accessory(id: String) = "accessory_$id"
     fun mission(id: String) = "mission_$id"
+    fun formation(id: String) = "formation_$id"
 }

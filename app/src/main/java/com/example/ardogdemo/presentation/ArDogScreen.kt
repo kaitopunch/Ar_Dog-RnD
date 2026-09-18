@@ -42,6 +42,7 @@ import com.example.ardogdemo.R
 import com.example.ardogdemo.audio.CharacterAudioPlayer
 import com.example.ardogdemo.audio.CombatAudioPlayer
 import com.example.ardogdemo.camera.CameraPreview
+import com.example.ardogdemo.config.FirebaseMultiModelCountSource
 import com.example.ardogdemo.domain.character.CharacterAction
 import com.example.ardogdemo.domain.character.AccessoryId
 import com.example.ardogdemo.domain.character.CharacterReadiness
@@ -54,6 +55,7 @@ import com.example.ardogdemo.diagnostics.PerformanceScenarioController
 import com.example.ardogdemo.diagnostics.RuntimeDiagnostics
 import com.example.ardogdemo.scene.ModelScene
 import com.example.ardogdemo.ui.components.AccessorySelector
+import com.example.ardogdemo.ui.components.FormationLayoutSelector
 import com.example.ardogdemo.ui.components.ModelScaleSlider
 import com.example.ardogdemo.ui.components.MultiModelSelector
 import com.example.ardogdemo.ui.components.MovementJoystick
@@ -61,7 +63,7 @@ import kotlinx.coroutines.delay
 import kotlin.math.abs
 
 @Composable
-fun ArDogRoute(viewModel: ArDogViewModel = viewModel()) {
+fun ArDogRoute(viewModel: ArDogViewModel = viewModel { ArDogViewModel(FirebaseMultiModelCountSource()) }) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val performanceScenario by PerformanceScenarioController.scenario.collectAsStateWithLifecycle()
     ArDogScreen(state, viewModel::onIntent, performanceScenario)
@@ -126,16 +128,25 @@ fun ArDogScreen(
             onIntent,
             Modifier.align(Alignment.TopCenter).padding(top = 22.dp).fillMaxSize(.92f),
         )
-        MultiModelSelector(
-            icon = painterResource(R.drawable.clone_jutsu),
-            contentDescription = stringResource(R.string.activate_multi_model),
-            remainingMs = state.multiModelRemainingMs,
-            durationMs = MULTI_MODEL_DURATION_MS,
-            enabled = state.readiness == CharacterReadiness.Ready,
-            onClick = { onIntent(ArDogIntent.ActivateMultiModel) },
-            modifier = Modifier.align(Alignment.TopStart).padding(start = 18.dp, top = 72.dp)
-                .testTag(PerformanceTestTags.MultiModel),
-        )
+        Column(
+            Modifier.align(Alignment.TopStart).padding(start = 18.dp, top = 72.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            MultiModelSelector(
+                icon = painterResource(R.drawable.clone_jutsu),
+                contentDescription = stringResource(R.string.activate_multi_model),
+                remainingMs = state.multiModelRemainingMs,
+                durationMs = MULTI_MODEL_DURATION_MS,
+                enabled = state.readiness == CharacterReadiness.Ready,
+                onClick = { onIntent(ArDogIntent.ActivateMultiModel) },
+                modifier = Modifier.testTag(PerformanceTestTags.MultiModel),
+            )
+            FormationLayoutSelector(
+                selected = state.formationLayout,
+                enabled = state.readiness == CharacterReadiness.Ready,
+                onSelect = { onIntent(ArDogIntent.SelectFormationLayout(it)) },
+            )
+        }
         if (!state.selectorOpen) ModelGestureLayer(onIntent, Modifier.align(Alignment.Center).size(260.dp, 430.dp))
         Column(
             Modifier.align(Alignment.BottomStart).padding(start = 18.dp, bottom = 28.dp),

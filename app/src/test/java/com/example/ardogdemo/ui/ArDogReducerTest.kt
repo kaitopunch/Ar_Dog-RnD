@@ -3,12 +3,13 @@ package com.example.ardogdemo.ui
 import com.example.ardogdemo.domain.character.AccessoryId
 import com.example.ardogdemo.domain.character.CharacterAction
 import com.example.ardogdemo.domain.character.CharacterReadiness
+import com.example.ardogdemo.domain.character.FormationLayout
 import com.example.ardogdemo.domain.character.ModelTransform
+import com.example.ardogdemo.domain.character.MultiModelFormation
 import com.example.ardogdemo.presentation.ArDogIntent
 import com.example.ardogdemo.presentation.ArDogReducer
 import com.example.ardogdemo.presentation.ArDogState
 import com.example.ardogdemo.presentation.MULTI_MODEL_DURATION_MS
-import com.example.ardogdemo.presentation.MULTI_MODEL_INSTANCE_COUNT
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -111,7 +112,8 @@ class ArDogReducerTest {
 
         val active = reduce(initial, ArDogIntent.ActivateMultiModel)
         assertEquals(MULTI_MODEL_DURATION_MS, active.multiModelRemainingMs)
-        assertEquals(MULTI_MODEL_INSTANCE_COUNT, active.playerInstanceCount)
+        assertEquals(MultiModelFormation.MAX_COUNT, active.playerInstanceCount)
+        assertEquals(FormationLayout.Triangle, active.formationLayout)
     }
 
     @Test fun `multi model countdown expires back to primary character`() {
@@ -149,6 +151,47 @@ class ArDogReducerTest {
         assertEquals(source.mission, expired.mission)
     }
 
+    @Test fun `formation layout switch while active changes only the layout`() {
+        val source = ArDogState(
+            transform = ModelTransform(.4f, -.3f, 1.4f, 25f),
+            mouthAccessory = AccessoryId.Cigar,
+            eyeAccessory = AccessoryId.SpiralGlasses,
+            action = CharacterAction.Dance,
+            actionToken = 4L,
+        )
+        val elapsed = reduce(reduce(source, ArDogIntent.ActivateMultiModel), ArDogIntent.MultiModelTick(12_345L))
+        val switched = reduce(elapsed, ArDogIntent.SelectFormationLayout(FormationLayout.Row))
+
+        assertEquals(elapsed.copy(formationLayout = FormationLayout.Row), switched)
+        assertEquals(MultiModelFormation.MAX_COUNT, switched.playerInstanceCount)
+    }
+
+    @Test fun `remote count while active changes visible instances per layout`() {
+        val loaded = reduce(reduce(ArDogState(), ArDogIntent.ActivateMultiModel), ArDogIntent.MultiModelCountLoaded(4))
+
+        assertEquals(3, loaded.playerInstanceCount)
+        assertEquals(4, reduce(loaded, ArDogIntent.SelectFormationLayout(FormationLayout.Row)).playerInstanceCount)
+        assertEquals(4, reduce(loaded, ArDogIntent.SelectFormationLayout(FormationLayout.Circle)).playerInstanceCount)
+        assertEquals(1, reduce(loaded, ArDogIntent.MultiModelTick(MULTI_MODEL_DURATION_MS)).playerInstanceCount)
+    }
+
+    @Test fun `remote count is clamped into the supported range`() {
+        assertEquals(6, reduce(ArDogState(), ArDogIntent.MultiModelCountLoaded(100)).multiModelCount)
+        assertEquals(3, reduce(ArDogState(), ArDogIntent.MultiModelCountLoaded(1)).multiModelCount)
+    }
+
+    @Test fun `performance reset preserves remote count`() {
+        val source = reduce(
+            reduce(ArDogState(), ArDogIntent.MultiModelCountLoaded(3)),
+            ArDogIntent.ActivateMultiModel,
+        )
+        val reset = reduce(reduce(source, ArDogIntent.SelectFormationLayout(FormationLayout.Circle)), ArDogIntent.ResetPerformanceScenario)
+
+        assertEquals(3, reset.multiModelCount)
+        assertEquals(0L, reset.multiModelRemainingMs)
+        assertEquals(FormationLayout.Triangle, reset.formationLayout)
+    }
+
     @Test fun `performance reset clears workload state but preserves loaded readiness`() {
         val source = reduce(
             reduce(
@@ -162,6 +205,16 @@ class ArDogReducerTest {
 
         assertEquals(CharacterReadiness.Ready, reset.readiness)
         assertEquals(ArDogState(readiness = reset.readiness), reset)
+    }
+
+    @Test fun `expiry returns to single instance regardless of active layout`() {
+        val active = reduce(ArDogState(), ArDogIntent.ActivateMultiModel)
+
+        for (layout in FormationLayout.entries) {
+            val inLayout = reduce(active, ArDogIntent.SelectFormationLayout(layout))
+            val expired = reduce(inLayout, ArDogIntent.MultiModelTick(MULTI_MODEL_DURATION_MS))
+            assertEquals("$layout", 1, expired.playerInstanceCount)
+        }
     }
 
     private fun reduce(state: ArDogState, intent: ArDogIntent) = ArDogReducer.reduce(state, intent)
